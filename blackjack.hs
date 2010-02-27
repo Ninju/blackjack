@@ -90,8 +90,10 @@ newGame = do clearScreen
 
 play :: [Card] -> Player -> [Player] -> IO ([Card], Player, [Player])
 play deck dealer players = do (cs, ps) <- playPlayers deck dealer players
-                              let (cs', d) = playDealerHand cs dealer
-                              return (cs', d, ps)
+                              if all isBust ps
+                                then return (cs, dealer, ps)
+                                else do let (cs', d) = playDealerHand cs dealer
+                                        return (cs', d, ps)
 
 playPlayers :: [Card] -> Player -> [Player] -> IO ([Card], [Player])
 playPlayers deck dealer players = foldM f (deck, []) players
@@ -115,9 +117,11 @@ printPlayersCards :: Player -> IO ()
 printPlayersCards player = putStrLn $ "You: " ++ displayStringForCards (cards player)
 
 playDealerHand :: [Card] -> Player -> ([Card], Player)
-playDealerHand deck dealer = if optimalValueOfCards (cards dealer) < 17 then (deck, dealer) else playDealerHand (tail deck) (dealCard (head deck) dealer)
+playDealerHand []   _      = error "There is no deck left."
+playDealerHand deck dealer = if optimalValueOfCards (cards dealer) < 17 then playDealerHand (tail deck) (dealCard (head deck) dealer) else (deck, dealer)
 
 playHand :: [Card] -> Player -> Player -> IO ([Card], Player)
+playHand []   _      _      = error "There is no deck left"
 playHand deck dealer player = do clearScreen
                                  printDealersFaceUpCard dealer
                                  printPlayersCards player
@@ -170,7 +174,9 @@ dealCard c (Dealer cs) = Dealer (c:cs)
 cards (Player cs) = cs
 cards (Dealer cs) = cs
 
-winner d p | dv == pv  = betterCards d p
+winner d p | isBust p  = d
+           | isBust d  = p
+           | dv == pv  = betterCards d p
            | dv >= pv  = d
            | otherwise = p
            where
